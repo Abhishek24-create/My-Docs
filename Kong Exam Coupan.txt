@@ -8,3 +8,5 @@ K8s credentials
 https://techworld-with-nana.teachable.com/
 jaiswalvivek316@gmail.com
 3qCXm-Z3NmLjMR3
+
+playground for K8s - https://killercoda.com/killer-shell-cka
