@@ -1,0 +1,104 @@
+name: Demo to Delpoy OAS to Kong # Specify the name of the deployment
+on:
+  push:
+    branches:
+      - main  # Trigger the deployment when pushing to the main branch
+#j
+jobs:
+  OAS_To_KONG:
+    runs-on: ubuntu-latest  # Use Ubuntu as the operating system for the job
+    
+    strategy:
+      matrix:
+        workspace:
+          - default
+          - sandbox
+          - production
+          - qa
+          
+    env:
+      FOLDER_PATH: "kongspec"
+    steps:
+    - name: Checkout Code  # Checkout the code from the repository
+      uses: actions/checkout@v2
+
+    - name: Install Insomnia CLI  # Install Insomnia CLI for linting and generating Kong configuration
+      run: |
+        wget https://github.com/Kong/insomnia/releases/download/lib%403.14.0-beta.1/inso-linux-3.14.0-beta.1.tar.xz
+        tar -xf inso-linux-3.14.0-beta.1.tar.xz
+        
+    - name: Installing NodeJs
+      uses: actions/setup-node@v1
+      
+    - name: Installing inso
+      run:  npm install -g insomnia
+      
+    - name: Lint OpenAPI Spec
+      run: |
+         for file_path in $FOLDER_PATH/*
+         do
+          ./inso lint spec ./$file_path
+         done
+
+           
+      
+#     - name: Test the Inso OpenApSpec
+#       run: ./inso run test "ApiActionDemo"
+      
+    - name: Generate Kong configuration in declarative format
+      run: |
+         for file_path in $FOLDER_PATH/*
+         do
+           ./inso generate config $file_path --type declarative -o $file_path --kongVersion 3
+         done
+#     - name: open kong.yaml  # Display the contents of the generated Kong configuration
+#       run: cat ./$file_path
+    - name: install deck CLI  # Install deck CLI for syncing Kong configuration
+      run: |
+        curl -sL https://github.com/kong/deck/releases/download/v1.17.2/deck_1.17.2_linux_amd64.tar.gz -o deck.tar.gz
+        tar -xf deck.tar.gz -C /tmp 
+        sudo cp /tmp/deck /usr/local/bin/
+
+
+      
+    - name: Validate the Kong configuration using deck CLI
+      run: |
+          for file_path in $FOLDER_PATH/*
+          do
+            deck validate -s ./$file_path
+          done
+  
+# #     - name: Convert kong declarative  # Convert the Kong configuration to version 3.x using deck CLI
+# #       run: |
+# #           deck convert --from kong-gateway-2.x --to kong-gateway-3.x --input-file kong.yaml --output-file new-kong.yaml
+    - name: Deploy to Kong
+      run: |
+         state=""
+         for file_path in $FOLDER_PATH/*
+         do
+           state="$state -s $file_path "
+         done  
+         deck sync $state --kong-addr http://34.125.43.26:8001 --workspace ${{ matrix.workspace }}
+#     - name: Deploy to Kong  # Sync the Kong configuration to Kong API Gateway
+#       run: deck sync -s kong.yaml  --kong-addr http://34.125.43.26:8001
+# #   publish-customer-api-to-portal:  # Publish the API to the dev portal
+# #     name: Publish OAS to dev portal
+# #     needs: OAS_To_KONG  # Make sure the OAS_To_KONG job is completed before running this job
+# #     runs-on: ubuntu-latest  # Use Ubuntu as the operating system for the job
+# #     steps:
+# #       - name: Checkout branch  # Checkout the branch from the repository
+# #         uses: actions/checkout@v2
+# #       - name: Install NodeJs  # Install Node.js for running the dev portal CLI
+# #         uses: actions/setup-node@v3
+# #       - name: Install kon-dev-portal-cli  # Install dev portal CLI
+# #         run: npm install -g kong-portal-cli
+# #       - name: Deploy to dev portal
+# #         run: |          
+# #           portal deploy -D --preserve default 
+# #         env:
+# #           KONG_ADMIN_URL: ${{ secrets.KONG_ADMIN_ADDR }}
+# #           KONG_ADMIN_TOKEN: ${{ secrets.KONG_ADMIN_TOKEN}}    
+
+   
+  
+    
