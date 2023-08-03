@@ -1,0 +1,120 @@
+Enable Keyring nf Vault integration in kong
+1.Make directory keycert 
+mkdir keycert
+cd keycert
+
+2.Generating an RSA key pair is straightforward via the openssl CLI:
+
+openssl genrsa -out key.pem 2048
+openssl rsa -in key.pem -pubout -out cert.pem
+
+3.Now use docker command to copy cert.pem inside kong-gateway container
+
+docker cp ./desktop/keycert/cert.pem:./etc/cert.pem
+
+
+4.Enabling data encryption in Kong requires modifying the Kong configuration. Set the following values in kong.conf:
+Run command to go inside the kong conatiner => docker exec -u root -it kong-gateway bash
+
+keyring_enabled = on
+keyring_strategy = cluster
+keyring_recovery_public_key = ./cert.pem
+
+5. Restart the kong-gateway container
+
+6.Verify the Cluster Keyring
+With the keyring enabled and Kong started, verify the contents of the keyring:
+ 
+ curl -s localhost:8001/keyring | jq
+
+7.Create a Consumer with a basic-auth credential
+
+curl -s localhost:8001/consumers -d username=Abhi | jq
+
+curl -s localhost:8001/consumers/bob/basic-auth -d username=abhi -d password=secret | jq
+
+We can verify this by examining the value stored in the database:
+Run Command to go inside conatiner => docker exec -u root -it kong-database psql -U kong
+
+kong=# select id,password from basicauth_credentials;
+                  id                  |                                                         password
+--------------------------------------+---------------------------------------------------------------------------------------------------------------------------
+ fc46ce48-c1d6-4078-9f51-5a777350a8a2 | $ke$1$-LaW1urRQ-0f5b1ee8ddeefca1a1d75125-53f158a5f619133a2113692a7057e2b91fa947321de4480d452dd42c36bc9ef8aa6499cd429db6d7
+(1 row)
+
+curl -s localhost:8001/consumers/Abhi/basic-auth/fc46ce48-c1d6-4078-9f51-5a777350a8a2 | jq
+
+8. Kong can generate a new key via /keyring/generate endpoint
+ curl -XPOST -s localhost:8001/keyring/generate
+
+
+VAULT Installation and integration with kong
+
+1. open Powershwll as adminstartor
+ Run following command
+ PS C: cd Users/user/desktop/vault_1.12.3_windows_amd64
+ PS C:\Users\user\downloads\vault_1.12.3_windows_amd64> vault.exe server -dev
+ 
+After running this you will get the following
+ 
+PowerShell:
+    $env:VAULT_ADDR="http://127.0.0.1:8200"
+cmd.exe:
+    set VAULT_ADDR=http://127.0.0.1:8200
+
+The unseal key and root token are displayed below in case you want to
+seal/unseal the Vault or re-authenticate.
+
+Unseal Key: wbP8gLqYew7wfpZmERNLcJCte93uIFx2dyRHOwBrC6U=
+Root Token: hvs.Ghl8u86cwziiERMXKgSCatdW
+
+2. Now open cmd and run the bash
+RUN this command to go inside the gateway container - docker exec -u root -it kong-gateway bash
+
+set below env configuration:-
+
+export KONG_VAULT_HCV_PROTOCOL=http://34.125.155.96:8200
+export KONG_VAULT_HCV_HOST=34.125.155.96
+export KONG_VAULT_HCV_PORT=8200
+export KONG_VAULT_HCV_MOUNT=secret
+export KONG_VAULT_HCV_KV=v1
+export KONG_VAULT_HCV_AUTH_METHOD=token
+export KONG_VAULT_HCV_TOKEN=hvs.raUKygbVZ0X76fanTQNL6j3b
+
+
+curl -i -X PUT http://34.125.110.151:8001/vaults/my-hashicorp-vault \
+  --data name="hcv" \
+  --data description="Storing secrets in HashiCorp Vault" \
+  --data config.protocol="https" \
+  --data config.host="34.125.155.96" \
+  --data config.port="8200" \
+  --data config.mount="secret" \
+  --data config.kv=v1 \
+  --data config.token=hvs.raUKygbVZ0X76fanTQNL6j3b
+
+curl -X POST http://34.125.110.151:8001/vault-auth \
+  --header 'Content-Type: multipart/form-data' \
+  --form name=kong-auth \
+  --form mount=kong-auth \
+  --form protocol=http \
+  --form host=127.0.0.1 \
+  --form port=8200 \
+  --form vault_token=hvs.raUKygbVZ0X76fanTQNL6j3b\
+  --form kv=v1
+
+
+ curl -i -X POST http://34.125.110.151:8001/vault-auth/9ba2dfb3-4ef5-44f6-bf39-c2e1d0084124/credentials/Abhi
+  curl -i -X POST http://34.125.110.151:8001/vault-auth/https://34.125.155.96:8200/credentials/Abhi
+  curl -i -X POST http://34.125.110.151:8001/vault-auth/34.125.155.96:8200/credentials/my-hashicorp-vault
+
+curl -X POST http://34.125.110.151:8001/plugins \
+  --data name=vault-auth \
+curl -X POST http://34.125.110.151:8001/services/auth/plugins \
+    --data "name=vault-auth"  \
+    --data "config.vault.id=00000000-0000-0000-0000-000000000000"
+	
+	DELETE FROM vault_auth_vaults WHERE id = 537150cb-4b40-416f-8867-12b365d86d7b;
+
+
+Oops.
+An error occurred while reading the page template. See web_service.log for more details Click here to return to Splunk homepage.
