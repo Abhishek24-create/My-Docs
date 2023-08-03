@@ -1,0 +1,67 @@
+1.Create Service Command
+ curl -i -X POST http://localhost:8001/services \
+  --data name=mock_service \
+  --data url='http://httpbin.org/get'
+
+
+2.to check service status in git bash
+curl -X GET http://localhost:8001/services/mock_service
+ or in browser
+http://localhost:8001/services/mock_service
+
+
+3. Create Route Command
+ curl -i -X POST http://localhost:8001/services/mock_service/routes \
+  --data 'paths[]=/mock' --data name=mock_routes
+
+
+4.2.to check routes status in git bash
+curl -X GET http://localhost:8001/services/mock_service/routes/test
+  or in browser
+http://localhost:8001/services/mock_service/routes/test
+
+
+5.to apply key-auth plugin
+curl -X POST http://localhost:8001/services/mock_service/plugins \
+    --data "name=key-auth"  \
+    --data "config.key_names=apikey"
+	
+6.to create a consumer
+curl -d "username=user123&custom_id=SOME_CUSTOM_ID" http://localhost:8001/consumers/
+OR
+curl -i -X http://localhost:8001/consumers \
+--data username=AuthUser \
+--data custom_id=abhi1234
+
+
+7.Adding new credentials
+
+8.Making request with the key-auth
+curl  http://localhost:8000/mock?apikey=GfxxJZSnozXed80dAmvgd6EXHxHKsUCF
+
+
+9.Applying rate limiting policy
+ curl -X POST http://localhost:8001/services/mock_service/plugins \
+    --data "name=rate-limiting"  \
+    --data "config.second=5" \
+    --data "config.hour=10000" \
+    --data "config.policy=local"
+
+
+10.Making request with Rate-limiting
+curl  http://localhost:8000/mock?apikey=GfxxJZSnozXed80dAmvgd6EXHxHKsUCF --header 'Host: example.com'
+
+
+11.Applying IP requesting Plugin
+ curl -X POST http://localhost:8001/services/mock_service/plugins     --data "name=ip-restriction"      --data "config.allow=182.68.191.192" 
+ 
+12. Applying Requeest Transformer.
+  curl -X POST http://localhost:8001/services/mock_service/plugins   --data "name=request-transformer"   --data "config.add.headers[1]=Kong-Call:True"   --data "config.add.headers[2]=h2:v1"  
+  
+  
+  curl -i -X POST http://localhost:8001/licenses \
+  -d payload='{"license": {"payload": {"customer": "NeosAlpha  Technologies Limited","license_creation_date": "2022-09-29","product_subscription": "Kong Enterprise Edition","support_plan": "None","admin_seats": "5","dataplanes": "10","license_expiration_date": "2023-09-29","license_key": "0011K00002YTyxnQAD_a1V1K0000098fODUAY"},"version": 1,"signature": "7a9012a00c3f15691f4dc545adf8c4b992b4a09e83607af89c86dc27d658f69007595a5161ac361520565b401fc66baeb58a388d8399aaac59bc75703d3ab441"}}'
+
+
+curl -i -X POST localhost:8001/mock_service/plugins --data 'name=request-transformer-advanced' --data 'config.add.headers=x-added:value'
+
