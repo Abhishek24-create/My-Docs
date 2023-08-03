@@ -1,0 +1,13 @@
+ kubectl get pods -n kong-cp
+ helm uninstall kong-cp -n kong-cp
+ helm uninstall kong-dp -n kong-dp
+ kubectl get svc -n kong-cp
+ kubectl get pods -n kong-cp
+ helm install -f ./kong_values/kong_cp_values.yaml kong-cp   kong/kong --namespace kong-cp
+ kubectl get pods -n kong-cp
+ kubectl get svc -n kong-cp
+ cluster_ep="kong-cp-kong-cluster.kong-cp.svc.cluster.local:8005"
+ telem_ep="kong-cp-kong-clustertelemetry.kong-cp.svc.cluster.local:8006"
+ helm install -f ./kong_values/kong_dp_values.yaml kong-dp   --set env.cluster_control_plane="${cluster_ep}"   --set env.cluster_telemetry_endpoint="${telem_ep}"   kong/kong --namespace kong-dp
+ 
+ helm upgrade --install -f ./kong_values/kong_cp_values.yaml kong-cp   kong/kong --namespace kong-cp
