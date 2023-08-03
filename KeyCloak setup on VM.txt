@@ -1,0 +1,41 @@
+sudo apt update
+sudo apt list --upgradable install
+sudo apt upgrade
+sudo apt install default-jdk
+
+
+cd /srv/
+sudo wget https://github.com/keycloak/keycloak/releases/download/17.0.0/keycloak-17.0.0.tar.gz
+sudo tar -xvf keycloak-17.0.0.tar.gz
+
+sudo mkdir /srv/crt
+cd crt 
+sudo openssl genrsa -out server.key 2048
+sudo openssl req -new -key server.key -out server.csr -subj "/CN=34.125.197.147"
+sudo openssl x509 -req -days 365 -in server.csr -signkey server.key -out server.crt
+
+cd ..
+
+cd keycloak-17.0.0 
+cd conf 
+      sudo vi keycloak.conf [CHANGES]
+	  # The file path to a server certificate or certificate chain in PEM format.
+	  https-certificate-file=/srv/crt/server.crt
+     
+	  #The file path to a private key in PEM format.
+      https-certificate-key-file=/srv/crt/server.key
+	 
+	  # Hostname for the Keycloak server.
+      hostname=34.125.32.214
+      
+      cd ..
+	  
+      export KEYCLOAK_ADMIN=admin
+      export KEYCLOAK_ADMIN_PASSWORD=admin
+      export KC_HOSTNAME_STRICT=false
+      export KC_HTTP_ENABLED=true
+      export KC_HTTP_PORT=8380
+      export KC_HOSTNAME_STRICT_HTTPS=false 
+
+sudo -E bin/kc.sh build 
+sudo -E bin/kc.sh start
