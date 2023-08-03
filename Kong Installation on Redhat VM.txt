@@ -1,0 +1,95 @@
+sudo yum update
+sudo yum install wget
+
+
+# install the kong
+curl -Lo kong-enterprise-edition-3.2.1.0.rpm $( rpm --eval "https://download.konghq.com/gateway-3.x-rhel-%{rhel}/Packages/k/kong-enterprise-edition-3.1.1.3.rhel%{rhel}.amd64.rpm")
+
+sudo yum install kong-enterprise-edition-3.1.1.3.rpm
+
+# postgres installation
+# Install the repository RPM:
+sudo dnf install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-8-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+sudo dnf -qy module disable postgresql
+sudo dnf install -y postgresql15-server
+sudo /usr/pgsql-15/bin/postgresql-15-setup initdb
+sudo systemctl enable postgresql-15
+sudo systemctl start postgresql-15
+ls
+
+sudo -i -u postgres
+
+psql
+
+
+CREATE USER kong; CREATE DATABASE kong OWNER kong; ALTER USER kong WITH password 'password';
+
+\q
+
+exit
+
+Save a copy of the default Kong conf file that ships with the installation before making modifications: 
+
+
+#Create a copy of configuration file
+sudo cp /etc/kong/kong.conf.default  /etc/kong/kong.conf 
+
+sudo vi /etc/kong/kong.conf
+
+Update the following variables with your environment specific values: 
+
+database = postgres           
+
+pg_host = <Kong-Enterprise-VM-IP> 
+
+pg_port = 5432                  
+
+pg_timeout = 5000               
+
+pg_user = kong                  
+
+pg_password = password                  
+
+pg_database = kong               
+
+admin_listen = 0.0.0.0:8001, 0.0.0.0:8444 ssl 
+
+# The KONG_PASSWORD environment variable needs to be exported before running the database migration and bootstrap processes. 
+
+export KONG_PASSWORD=password 
+
+sudo kong migrations bootstrap -c /etc/kong/kong.conf -vv 
+
+sudo kong start -c /etc/kong/kong.conf 
+
+Run a test against the local service to make sure Kong is up and running: 
+
+curl -i -X GET --url http://localhost:8001/staus
+curl -i -X GET --url http://localhost:8002
+curl -i -X GET --url http://localhost:8000
+
+
+ sed -i -E 's/^#portal =.*$/portal = on/' /etc/kong/kong.conf
+ sed -i -E 's/^#portal_gui_listen =.*$/portal_gui_listen = 0.0.0.0:8446 ssl/' /etc/kong/kong.conf
+ sed -i -E 's/^#portal_gui_protocol =.*$/portal_gui_protocol = https/' /etc/kong/kong.conf
+ sed -i -E 's/^#portal_gui_host =.*$/portal_gui_host = $CP_IP:8446/' /etc/kong/kong.conf
+ sed -i -E 's/^#portal_cors_origins =.*$/portal_cors_origins = */' /etc/kong/kong.conf
+ sed -i 's|#portal_gui_ssl_cert =|portal_gui_ssl_cert = /etc/kong/server.crt|g' /etc/kong/kong.conf
+ sed -i 's|#portal_gui_ssl_cert_key =|portal_gui_ssl_cert_key = /etc/kong/server.key|g' /etc/kong/kong.conf
+ sed -i -E 's/^#portal_api_listen =.*$/portal_api_listen = 0.0.0.0:8447 ssl/' /etc/kong/kong.conf
+ sed -i 's|#portal_api_ssl_cert =|portal_api_ssl_cert = /etc/kong/server.crt|g' /etc/kong/kong.conf
+ sed -i 's|#portal_api_ssl_cert_key =|portal_api_ssl_cert_key = /etc/kong/server.key|g' /etc/kong/kong.conf
+ 
+ su -c "psql -c \"CREATE USER kong WITH PASSWORD 'password';\""  -l postgres
+ # Shared Mode
+
+cluster_mtls = shared
+cluster_cert = /etc/kong/cluster.crt
+cluster_cert_key = /etc/kong/cluster.key
+
+# PKI Mode
+
+cluster_mtls = pki
+cluster_ca_cert = /etc/kong/ca-cert.pem 
+cluster_cert = /etc/kong/control-plane.crt
+cluster_cert_key = /etc/kong/control-plane.key
