@@ -1,0 +1,83 @@
+To create the required configuration in Kong Gateway, you can follow these steps:
+Create three services:
+
+a. ServiceA:
+curl -i -X POST \
+--url http://localhost:8001/services/ \
+--data 'name=serviceA' \
+--data 'url=http://httpbin.org/get'
+
+Create the routes:
+curl -i -X POST \
+  --url http://localhost:8001/services/ServiceA/routes \
+  --data 'hosts[]=example.com' \
+  --data 'paths[]=/servicea' \
+  --data 'name=RouteA'
+
+curl -i -X POST \
+  --url http://localhost:8001/services/ServiceB/routes \
+  --data 'hosts[]=example.com' \
+  --data 'paths[]=/serviceb' \
+  --data 'name=RouteB'
+
+curl -i -X POST \
+  --url http://localhost:8001/services/ServiceC/routes \
+  --data 'hosts[]=example.com' \
+  --data 'paths[]=/servicec' \
+  --data 'name=RouteC'
+
+
+Configure the ACL plugin for each route:
+curl -i -X POST \
+  --url http://localhost:8001/routes/RouteA/plugins/ \
+  --data 'name=acl' \
+  --data 'config.allow=groupA,groupB,groupC'
+
+curl -i -X POST \
+  --url http://localhost:8001/routes/RouteB/plugins/ \
+  --data 'name=acl' \
+  --data 'config.allow=groupA,groupB,groupC'
+
+curl -i -X POST \
+  --url http://localhost:8001/routes/RouteC/plugins/ \
+  --data 'name=acl' \
+  --data 'config.allow=groupA,groupB,groupC'
+
+
+Create the consumers:
+curl -i -X POST \
+  --url http://localhost:8001/consumers/ \
+  --data "username=jane"
+
+curl -i -X POST \
+  --url http://localhost:8001/consumers/ \
+  --data "username=carl"
+
+curl -i -X POST \
+  --url http://localhost:8001/consumers/ \
+  --data "username=john"
+
+curl -i -X POST \
+  --url http://localhost:8001/consumers/ \
+  --data "username=Louren"
+
+
+Configure the ACL plugin for each consumer:
+
+curl -i -X POST \
+  --url http://localhost:8001/consumers/jane/acls/ \
+  --data "group=groupA"
+
+curl -i -X POST \
+  --url http://localhost:8001/consumers/jane/acls/ \
+  --data "group=groupC"
+
+curl -i -X POST \
+  --url http://localhost:8001/consumers/john/acls/ \
+  --data "group=groupA"
+
+curl -i -X POST \
+  --url http://localhost:8001/consumers/Louren/acls/ \
+  --data "group=groupB"
+
+
