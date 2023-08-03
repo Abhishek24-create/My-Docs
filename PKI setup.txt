@@ -1,0 +1,44 @@
+To make it clear I am reconfiguring the steps so, if you get issue let me know : -
+ 
+sudo openssl genrsa -out server.key 2048
+
+You have to give the IP of CP in your CN name : -  
+sudo openssl req -new -key server.key -out server.csr -subj "/CN=34.125.118.181"
+
+Once you have generated the CSR file, you can use the openssl x509 command to sign it and generate the SSL certificate:
+sudo openssl x509 -req -days 365 -in server.csr -signkey server.key -out server.crt
+sudo openssl genrsa -out ca-cert.key 2048
+
+sudo openssl req -x509 -new -nodes -key ca-cert.key -sha256 -days 1825 -out ca-cert.pem 
+[ Issuer: C = IN, ST = Raj, L = Jaipur, O = Internet Widgits Pty Ltd, OU = IT-firm, CN = kong-issuer, emailAddress = rohan@gmail.com]
+                                                                                          
+sudo openssl genrsa -out control-plane.key 2048
+sudo openssl req -new -key control-plane.key -out control-plane.csr ( Subject: C = IN, ST = Raj, L = Jaipur, O = Internet Widgits Pty Ltd, OU = IT-firm, 
+                                                                      CN = kongcp.nalphatech.co.in, emailAddress = rohan@gmail.com)
+sudo vi control-plane.ext 
+authorityKeyIdentifier=keyid,issuer
+basicConstraints=CA:FALSE
+keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = kongapi.nalphatech.co.in
+
+sudo openssl x509 -req -in control-plane.csr -CA ca-cert.pem -CAkey ca-cert.key -CAcreateserial \
+-out control-plane.crt -days 825 -sha256 -extfile control-plane.ext
+
+#DATA PLANE
+sudo openssl genrsa -out data-plane.key 2048
+sudo openssl req -new -key data-plane.key -out data-plane.csr
+( Subject: C = IN, ST = Raj, L = Jaipur, O = Internet Widgits Pty Ltd, OU = IT-firm,  CN = kongdp.nalphatech.co.in, emailAddress = rohan@gmail.com)
+                                                                     
+sudo vi data-plane.ext 
+
+authorityKeyIdentifier=keyid,issuer
+basicConstraints=CA:FALSE
+keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = kongdp.nalphatech.co.in
+
+sudo openssl x509 -req -in data-plane.csr -CA ca-cert.pem -CAkey ca-cert.key -CAcreateserial \
+-out data-plane.crt -days 825 -sha256 -extfile data-plane.ext
