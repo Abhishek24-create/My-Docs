@@ -1,0 +1,88 @@
+ Create user with admin
+curl -X POST http://localhost:8001/rbac/users -d name=super-admin -d user_token="super"
+
+Go inside Docker Conatainer
+
+
+docker exec -u root -it kong-gateway bash
+
+Modify configuration settings below in your kong.conf file. Navigate to the file at /etc/kong/kong.conf:
+ 
+ cd /etc/kong/
+
+Copy the kong.conf.default file so you know you have a working copy to fall back to.
+ 
+ cp kong.conf.default kong.conf
+ apt update 
+ apt install vim
+ vi kong.conf
+Now, edit the following settings in kong.conf:
+
+ echo >> “enforce_rbac = on” >> /etc/kong/kong.conf
+ echo >> “admin_gui_auth = basic-auth” >> /etc/kong.conf
+ echo >> “admin_gui_session_conf = {"secret":"secret","storage":"kong","cookie_secure":false}
+
+
+curl -i -X POST -k http://localhost:8001/default/admins \
+-H "Kong-Admin-Token:super" \
+-H "Content-Type: application/json" \
+-d '{"email":"abhishek.yadav@neosalpha.com","rbac_token_enabled":true,"username":"abhi"}'
+
+
+curl  -i -X POST http://localhost:8001/default/admins/chk/roles \
+-H "Kong-Admin-Token:super" \
+-H "Content-Type: application/json" \
+-d '{"roles":"super-admin"}'
+
+curl  -i -X GET http://localhost:8001/default/admins/chk?generate_register_url=true \
+-H 'Kong-Admin-Token:super'
+
+
+
+curl --request POST \
+  --url http://localhost:8001/admins/register \
+  --header 'content-type: application/json' \
+  --header 'kong-admin-token: superadmin' \
+  --data '{"email":"chk@gmail.com","username":"chk","password":"test", "token":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2NzA1ODIzODUsImlkIjoiNGY3OTcyNDAtYTM0ZC00M2IzLTg5YTYtZmEyNTVkZjgyYzJkIn0.cDMNHOMlvmTH1FvPYty-fG6xRx1xWnW5JGdeflumWF8"}'
+
+
+This turns on RBAC, tells Kong Gateway to use basic authentication (username/password), and tells the Sessions plugin how to create a session cookie.
+
+The cookie is used for all subsequent requests to authenticate the user until it expires. The session has a limited duration and renews at a configurable interval, which helps prevent an attacker from obtaining and using a stale cookie after the session has ended.
+
+Restart Kong Gateway and point to the new config file:
+ 
+ kong restart -c /etc/kong/kong.conf
+ openssl req -new -key server.key -out server.csr -subj "/CN=34.125.203.114"
+ 
+ data_to_add: |
+       admin_gui_auth_conf = { \
+       "issuer": "https://login.microsoftonline.com/947a7881-fd5e-477d-801f-b0710a36ef8d/v2.0/.well-known/openid-configuration",\
+       "admin_claim": "email", \
+       "client_id": ["52094362-b741-411a-b640-5980c3336959"], \
+       "client_secret": ["V_E8Q~V.k9k8DDXxq55j9v-vUSWoMHB6m1oS1b-K"], \
+       "authenticated_groups_claim": ["roles"], \
+       "ssl_verify": false, \
+       "leeway": 60, \
+       "redirect_uri": ["https://34.125.166.176:8445/"], \
+       "login_redirect_uri": ["https://34.125.166.176:8445/"], \
+       "logout_methods": ["GET", "DELETE", "POST"], \
+       "logout_query_arg": "logout", \
+       "logout_redirect_uri": ["https://34.125.166.176:8445/"], \
+       "scopes": ["openid","profile","email","52094362-b741-411a-b640-5980c3336959/.default"], \
+       "auth_methods": ["authorization_code"], \
+       "admin_auto_create_rbac_token_disabled": false \
+       }
+data2_to_add: |
+      admin_gui_session_conf = { \
+        "cookie_name": "kong_manager_session", \
+        "cookie_secure": false, \
+        "secret": "manager_secret", \
+        "storage": "kong" \
+      }
+https://34.125.74.21:8446/
+https://34.125.74.21:8446/default
+https://34.125.74.21:8446/Test
+https://34.125.74.21:8446/Test/auth
+https://34.125.74.21:8446/Test/register
+https://34.125.74.21:8446/default/register
