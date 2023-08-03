@@ -1,0 +1,52 @@
+#Setting Up Your Development Environment
+ open github and run these commands. 
+PATH=$PATH:~/.local/bin
+git clone https://github.com/Kong/kong-pongo.git
+mkdir -p ~/.local/bin
+ln -s $(realpath kong-pongo/pongo.sh) ~/.local/bin/pongo
+
+#Go in Kong-pongo directory 
+
+cd kong-pongo
+
+#then clone this repo
+git clone https://github.com/Kong/kong-plugin.git kong-api-version-plugin
+
+#then run pongo run command to create test-enviorment
+
+#copy all file of kong-pongo and paste in local/bin
+#also copy the kong-api-version-plugin directory and paste inside the local
+#open bash inside kong-api-version-plugin directory 
+#run pongo run 
+
+#now run this command
+pongo run
+
+#run this command
+pongo shell
+
+#now to start kong run this command
+
+kong migrations bootstrap --force
+kong start
+
+#Command To Create a Service
+curl -i -X POST  http://localhost:8001/services/ \
+ --data 'name=mock-service' \
+ --data 'url=http://httpbin.org/get'
+ 
+#Command To Create a Route
+ curl -i -X POST http://localhost:8001/services/mock-service/routes \
+ --data 'paths[]=/mock' \
+ --data name=test \
+ --data 'hosts[]=example.com' 
+ 
+#Command To Create a Plugins
+curl -i -X POST  http://localhost:8001/services/mock-service/plugins/ \
+ --data 'name=api-version'
+ 
+#Command to execute the process
+curl -I -H "Host: example.com" http://localhost:8000/mock
+
+#Command to delete a component
+curl -X DELETE http://localhost:8001/services/79fcf088-df48-4a85-8811-021b891f85ad
