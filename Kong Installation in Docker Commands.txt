@@ -1,0 +1,94 @@
+
+#Delete a Network
+docker network rm kong-net
+
+#Create a Network
+ docker network create kong-net
+ 
+#Start a Postgresql Container
+  docker run -d --name kong-database \
+  --network=kong-net \
+  -p 5432:5432 \
+  -e "POSTGRES_USER=kong" \
+  -e "POSTGRES_DB=kong" \
+  -e "POSTGRES_PASSWORD=kongpass" \
+  postgres:latest
+
+#Preparing the Kong Database
+docker run --rm --network=kong-net \
+  -e "KONG_DATABASE=postgres" \
+  -e "KONG_PG_HOST=kong-database" \
+  -e "KONG_PG_PASSWORD=kongpass" \
+  -e "KONG_PASSWORD=test" \
+ kong/kong-gateway:3.2.1.0 kong migrations bootstrap
+
+ 
+
+#Command to start enterprise edtion of Kong-gateway
+ {
+ 
+ export KONG_LICENSE_DATA='{"license": {"payload": {"customer": "NeosAlpha  Technologies Limited","license_creation_date": "2022-09-29","product_subscription": "Kong Enterprise Edition","support_plan": "None","admin_seats": "5","dataplanes": "10","license_expiration_date": "2023-09-29","license_key": "0011K00002YTyxnQAD_a1V1K0000098fODUAY"},"version": 1,"signature": "7a9012a00c3f15691f4dc545adf8c4b992b4a09e83607af89c86dc27d658f69007595a5161ac361520565b401fc66baeb58a388d8399aaac59bc75703d3ab441"}}'
+ 
+ }
+ 
+ [
+export KONG_LICENSE_DATA= '{"license": {"payload": {"customer": "Kong Education Appsembler Virtual Labs","license_creation_date": "2022-03-21","product_subscription": "Kong Enterprise Edition","support_plan": "None","admin_seats": "5", "dataplanes": "10","license_expiration_date": "2023-03-21","license_key" : "0011K000022IA3HQAW_a1V1K0000086GYUA2"},"version": 1,"signature": "f7fe87f240d93ed1346ed98350bfb9b7f59fd0d3e09be6ab38f92bbb59aeb7ff74d372e1ab048c365d81f44ffd04afa3b6a3d7d63df44df8e504558d4cf8b184"}}'
+ 
+ }
+ 
+#Command to check weather the enterprise edtionis installed in kong-gateway
+echo $KONG_LICENSE_DATA
+
+#Command to start a Container with Kong Gateway
+docker run -d --name kong-gateway \
+  --network=kong-net \
+  -e "KONG_DATABASE=postgres" \
+  -e "KONG_PG_HOST=kong-database" \
+  -e "KONG_PG_USER=kong" \
+  -e "KONG_PG_PASSWORD=kongpass" \
+  -e "KONG_PROXY_ACCESS_LOG=/dev/stdout" \
+  -e "KONG_ADMIN_ACCESS_LOG=/dev/stdout" \
+  -e "KONG_PROXY_ERROR_LOG=/dev/stderr" \
+  -e "KONG_ADMIN_ERROR_LOG=/dev/stderr" \
+  -e "KONG_ADMIN_LISTEN=0.0.0.0:8001" \
+  -e "KONG_ADMIN_GUI_URL=http://localhost:8002" \
+  -e KONG_LICENSE_DATA \
+  -p 8000:8000 \
+  -p 8443:8443 \
+  -p 8001:8001 \
+  -p 8444:8444 \
+  -p 8002:8002 \
+  -p 8445:8445 \
+  -p 8003:8003 \
+  -p 8004:8004 \
+  kong/kong-gateway:3.2.1.0
+
+
+ 
+ curl -i -X POST http://localhost:8001/licenses \
+  -d payload='{"license": {"payload": {"customer": "NeosAlpha  Technologies Limited","license_creation_date": "2022-09-29","product_subscription": "Kong Enterprise Edition","support_plan": "None","admin_seats": "5","dataplanes": "10","license_expiration_date": "2023-09-29","license_key": "0011K00002YTyxnQAD_a1V1K0000098fODUAY"},"version": 1,"signature": "7a9012a00c3f15691f4dc545adf8c4b992b4a09e83607af89c86dc27d658f69007595a5161ac361520565b401fc66baeb58a388d8399aaac59bc75703d3ab441"}}'
+ 
+openssl -x509 -in ca-cert.pem  -text
+openssl x509 -in ca-cert.key  -text
+openssl req -in data-plane.csr -text
+openssl x509 -in ca-cert.crt -text
+
+curl -i -X POST http://localhost:8001/licenses  -H 'Content-Type: application/json' --data 'payload=@/home/ec2-user/license.json'
+sudo openssl req -new -key server.key -out server.csr -subj "/CN=34.125.90.13"
+
+
+local body = kong.request.get_body()
+local type_param = body.type
+if type_param == "A" then
+  local target_url = "mocktarget.apigee.net"
+  local target_path = "/json"
+  kong.service.set_target(target_url, 80)
+  kong.service.request.set_path(target_path)
+elseif type_param == "B" then
+  local target_url = "mockbin.org"
+  local target_path = "/request"
+  kong.service.set_target(target_url, 80)
+  kong.service.request.set_path(target_path)
+else
+  kong.response.exit(400, { message = "Invalid type parameter" })
+end
