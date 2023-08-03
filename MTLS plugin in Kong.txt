@@ -1,0 +1,42 @@
+1. curl -X POST http://localhost:8001/services \
+  -d '{"name":"mtls-service","url":"https://httpbin.org/anything"}'
+
+2. curl -X POST http://localhost:8001/services/mtls-service/routes \
+  -d '{"name":"mtls-route","paths":["/mtls"]}'
+
+3. Create ca-certificate object
+     winpty openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -sha256 -days 365
+	 
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/ssl/private/myapp-example-com.key -out /etc/ssl/certs/myapp-example-com.crt
+    and Give Common Name(e.g. server FQDN or YOUR name)[] : myapp
+    
+    curl http://localhost:8001/ca_certificates -F cert=@myapp-example-com.crt
+    
+4  Copy the ID and paste it
+
+curl -X POST \
+  --url http://localhost:8001/plugins \
+  --header 'Content-Type: application/x-www-form-urlencoded' \
+  --data name=mtls-auth \
+  --data config.ca_certificates=3702a8d3-da45-45e7-920d-1cfd853d1b05 \
+  --data config.revocation_check_mode='SKIP'\
+  --data config.skip_consumer_lookup=true
+
+
+5. Access Control
+There are two methods of doing access control with mTLS plugin.
+
+>> The first method is to create a consumer object and map its username or custom_id to CN/Email of your client certificate. 
+When you do that you need to create consumer objects for different users.(Use Consumer Object)
+
+1 create a consumer with the name same as CN i.s myapp 
+2 Attach key-auth to service level 
+  curl -X POST http://localhost:8001/services/mtls-service/plugins -d name=key-auth
+3 myapp create its auth credential(apikey is 'apikey')
+
+Sakshi Singhal, Mon 7:04 PM
+curl https://localhost:8443/mtls --key myapp-example-com.key --cert myapp-example-com.crt -k -H "apikey:apikey"
+
+kong hybrid gen_cert
+
+systemctl enable kongs
