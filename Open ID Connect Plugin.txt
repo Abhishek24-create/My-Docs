@@ -1,0 +1,180 @@
+Answer:- OIDC ON LOCAL WITH KEYCLOCK(Securing APIs with OpenID Connect (Authentication))
+
+Key-Clock Installation 
+
+docker run --name keycloak -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_ADMIN_PASSWORD=admin -p 8180:8080 quay.io/keycloak/keycloak:17.0.0 start-dev
+==>Unable to find image 'quay.io/keycloak/keycloak:17.0.0' locally
+17.0.0: Pulling from keycloak/keycloak
+df5cd4b3d61f: Pulling fs layer
+fdee1701bdd9: Pulling fs layer
+60aeb37f943a: Pulling fs layer
+d944c0267ce3: Pulling fs layer
+d944c0267ce3: Waiting
+fdee1701bdd9: Verifying Checksum
+fdee1701bdd9: Download complete
+df5cd4b3d61f: Download complete
+df5cd4b3d61f: Pull complete
+fdee1701bdd9: Pull complete
+d944c0267ce3: Verifying Checksum
+d944c0267ce3: Download complete
+60aeb37f943a: Verifying Checksum
+60aeb37f943a: Download complete
+60aeb37f943a: Pull complete
+d944c0267ce3: Pull complete
+
+ 
+Key-Clock Configurations
+
+Go Log in with admin and admin
+Create kong client with Name - Kong and do Configurations like Client-Protocol: Open-IDConnect , Access-Type: Confidential, Root URI: http://localhost:8000 , Valid Redirect URI: /mock/* ,
+After saving the configs it  will generate Client-Secret
+Now you have to create a user with username:user, password:user@123
+So key-cloak Configurations is completed
+
+Open Kong Manager
+store the client secret in a variable
+cs=TxkKBnjmxHm1mMX9YVRmEoeu0JunGelL    #Client-Secret
+
+store the issuer url  in a variable
+iss=http://92.168.200.184:8180/realms/master/.well-known/openid-configuration         #issuer
+where 192.168.103.192 is IPv4 address of my localhost
+
+
+run this url on chrome browser
+http://192.168.200.128:8180/realms/master/.well-known/openid-configuration 
+
+
+Create a Service and Route
+curl -i -X POST http://localhost:8001/services -d name=oidc-service -d url=http://httpbin.org/anything
+ 
+
+Create a Plugin OIDC 
+curl -i -X POST http://localhost:8001/routes/myroute/plugins \
+    --data "name=openid-connect"  \
+    --data "config.issuer=$iss" \
+    --data "config.client_id=kong" \
+    --data "config.client_secret=$cs" \
+    --data "config.response_mode=form_post" \
+    --data "config.ssl_verify=false"
+
+Execute the Proxy  = curl -i -X GET http://localhost:8000/mock
+Output :- 302 Moved Temporarly
+
+=>echo -n "user:1234" | base64
+
+Output :- we will get output in base64 
+bt=dXNlcjp1c2VyQDEyMw==  # assign base 64 in a variable 
+
+
+curl -i -X GET http://localhost:8000/mock -H "Authorization:Basic $bt"
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   503  100   503    0     0    155      0  0:00:03  0:00:03 --:--:--   155HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 503
+Connection: keep-alive
+Date: Thu, 16 Mar 2023 12:52:46 GMT
+Server: gunicorn/19.9.0
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Credentials: true
+X-Kong-Upstream-Latency: 3227
+X-Kong-Proxy-Latency: 1
+Via: kong/3.1.1.1-enterprise-edition
+
+{
+  "args": {},
+  "data": "",
+  "files": {},
+  "form": {},
+  "headers": {
+    "Accept": "*/*",
+    "Authorization": "Basic VXNlcjprb25n",
+    "Host": "httpbin.org",
+    "User-Agent": "curl/7.85.0",
+    "X-Amzn-Trace-Id": "Root=1-6413111b-26ea2d0f0054f80c7c7ed917",
+    "X-Forwarded-Host": "localhost",
+    "X-Forwarded-Path": "/mock",
+    "X-Forwarded-Prefix": "/mock"
+  },
+  "json": null,
+  "method": "GET",
+  "origin": "172.19.0.1, 49.249.17.98",
+  "url": "http://localhost/anything"
+}
+
+Consumer Mapping with acl
+curl -i -X POST http://localhost:8001/routes/myroute/plugins -d "name=acl" -d "config.deny=group1"
+
+curl -i -X POST http://localhost:8001/consumers/employee/acls -d "group=group1"
+
+echo -n "employee:test" | base64
+ZW1wbG95ZWU6dGVzdA==
+curl -i -X GET http://localhost:8000/mock -H "Authorization:Basic ZW1wbG95ZWU6dGVzdA=="
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100    49  100    49    0     0    527      0 --:--:-- --:--:-- --:--:--   532HTTP/1.1 403 Forbidden
+Date: Mon, 27 Mar 2023 10:01:54 GMT
+Content-Type: application/json; charset=utf-8
+Connection: keep-alive
+Set-Cookie: session=ARAAaHVwwje-rFd8vaZL5zxROsxk_w40hp9d6ZOd5tnMz4eSaSFkAAAAAAA8CgCR9Ho49vtgWUpNguQBCHuuAAAAQhzKWLQ86qdNAsSi6WuTsQWpZgX11CUXYOKNAepUpthFMZhNaZyOPhqdBOajfrkkiD6URlFt_wYG70YZ-FW-aSJmfjA0JPo06dA1iAm3DDeoOFM7qFHmJVaxxc9RRKJJ7-0SjmPpa5sal94ZtGhiN1hdDYevteghyYnLw5IbkDIxJBgCeJWIaLNIR-bgYIvuTeZet4Np4UBx91PwIlgD7Xt5ZmZC50oIqbIqthjbNCKxgJS8RTP9vEBw4kspvhfQtBu3P_ksQAsu1x10rsaU49IZ37Dxfh_FKHjHf20t5QwdxneuLQOVK4Ece8io8UK_JqFCmzbCvBs4oZPJYulB4B2b11BuYbeCZtfE6EoWnork7n92fXVr7dnzDg5riXambOr3nSoaWb7BTOKswGoSsRes49X7ioNEH5zPdlLO3ZAYvN-CBKiFp3xZ_0BayzoMVSzBjNGTXZWjCyOM2ukB-48Rn8Pt-6xYMipi3BO2S8YTDraj1jDzGgiMVsawYS8reCQz_cAwZw7ckkfe4cB0faWOmNLBoakjYMfbf5492DjvF1fxney6HuiIxpcchm2twHkkZoTQzSO8dseNXgCH5M0CXhIQR8e9BHzypqW_nH9AFg3c_pJ40ZQl5u3_mNSTmednO_ttd0EWu_UhdEugxN6dtrlTFnvxvXPHmyjQ-xy3EB3cStaBtAEPrKr3DwYAxVzhfOYqzw0UWeBxoqc1q93Vzp85h6VjcTaZ5F5XFjm-Jo3WHtpI4Amct7f-eiIoJhTK3BMvIdfPM9aySza3HVEWgdrXtC8LnoWnr7qSTp9Qne4s0JmAduH16iZVZ_0IaO3eh0mS-5723eNTkMLZv_dcWJmULndVnOi0JpliqI7YEqaBovNF3XQM9e3tThTgAYxy8rtJexO19LE2dPXP8zvgOxk5Toqu-WRMVNOyPyydEXLwxhrXh0V5oOFIrxj-8svOOfWrBjZCWDgItUvl-20-YApBy1JdvtytUqyPmqbCzbO8ZnIGhW4Z33e6yaWyMnoT3u31qDKeds7q2oc9KW_alq2GSHpeDbHwRj2GL_Bg17z3DtrHShbEp_HAhkuj4PPj2UvWQDDrpPfv1nynrn6PlSizStlNhyXylqwpxrMFcPlNf1IMDsehq4E9LOz9N2LASyIsZTBMLOSCwxmCurxemb-TT1JRSWCe5SUYQU-86HgzF_nypwUAs0qNgfScpv84t_Su_-5Sl8Y1F9nkyX6L_YfLIwTOZEFFWBwfa3kf_jvYWHz4_Dl91Av08fuVYDEw9nGvU5dyaBm6hVzsGcJ1gpd50y7BkVml9cBRT9ML3VcMsENRogCgIDqlUIKk7eU-8J-MU3aaLS1Kbu_8fTE_ST29rBLlqwJgPRwkbacNTFCzIEcHnkB91vSsUFnXrDEZRwyy13kd7re6MKvbRa745ZntBewoZ2zwQxAe7zdiPzZW_YAFLM2NBZ5gA0bkU4cHQFswAe11PBI-hpPVOVDGa6R7qnVIolULz3o8vFPcx-d_1ZYemcLmeCObqciUsM86Y3icofQceKVJXHZRGxTj4LUMgSZbJt6XYD1eQr0e3rBerDgTwnZD3hEe6fml7CPZT2qxQfl9KrzCXakqcyOteqZbyP4k2Np0c-6DLU1ENII1qNWIgHHuJffPA_CXY-SG65W1cc4g2yYNIeQdl1MKQ1UuHEWRSWdF2EbizvvPg8ptP4ZK5ugDG9NBsG6Cq9sqxD4ZKj3NdmjqV1UTf3WjkJzndNyW_MhWApQt8zvVvAc1ISeLiI01yZiINFv32to5xiDi6zj28hrrOXTLV1dYEOtQ01adaTecdQ7Hchve9Dj2Y5mt6szmMVw7jCkfCurICM8xkA3dGi7OiOVw_cBiRSt6REyxX0Q-wVN_A3WLVhvsWgDjyxqmiJqMT56A281ng6ctBEoF0Y-W2yipr-m4tHorxyIB6EpkOMfSGWRdF7bNtRweIFKDIzMcTkoQO7q4mpGnyAsGoU4ybc-9NAnS5NwvyfHEcUqi9wOir7jP02xH8ivCg5DVhIN1KNVzwOlF_epzDeN1MMoNZnxULr9B6Kynjo-w0ullwZ_pu9E37r22mwXVWJDKmDO4t1U8GNT7rXNvm7a7p_X7mb-olU7OSlTPcF9eUpZx2DHnqQwE3FhowSDxi5TSRbAAFAumt3oiBJ5s9YVJxpbULa5LLsOjiKWhxQDz_PvguqqsRaYsCWzq5qql-RzFM8_1Qax_3IEtlVDURfudrVl4lBl8n_elsToGPrxyj-YuvmtBV7GAAoGt11ZTU_BtdXCi6I_yZhuRCFjEpZciS-yKW56rYEEFcUVVqVhmIhduQHQebWovQa2nGQkBaGB_G7Y1BuT8A0gOIm3I0Iz_410xOx9cMGRGMYOJvKtpYblLjsVpvUNNc2tdwcM8qddGKctlX8q7PcoFOUpXuLsEluqFr5E3ZHC4fdr4mBguGZkOatyXmpGKC0AWbmLdYVDy1704LAMf_hhMekixXcMbyBDZvSBDcwiKsY_C_WI5-Uf_YLjM5crfpDOTcr9G1b-4YRC3T-dFhIY7eCy_R_09znyDBNde46GDtqwqLd-CscUwnSP3JFsVad3ECQxIiQOu77dnkTvaQLWW8OYKn8JnwiRksc; Path=/; SameSite=Lax; HttpOnly
+Content-Length: 49
+X-Kong-Response-Latency: 88
+Server: kong/3.2.1.0-enterprise-edition
+
+{
+  "message":"You cannot consume this service"
+}
+
+
+echo -n "employee2:test2" | base64
+ZW1wbG95ZWUyOnRlc3Qy
+
+$ curl -i -X GET http://localhost:8000/mock -H "Authorization:Basic ZW1wbG95ZWUyOnRlc3Qy"
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 1939
+Connection: keep-alive
+Set-Cookie: session=ARAAfm6C_mSykdipvAyCUkAp4_EQnqAJdKCJmg75InLDRguvaSFkAAAAAABUCgAYfG1mYo4yf6RHV0Boh8h9AAAAWuEvR0l2DcUHZBpAlMUtgglYETvFfhW8ZlBs9zJu9nCI4Ki_imYKFn5thW3CHqNOins9hSav_eWmZe5plmhfxUI8jy7mIa9tIYz4KgfbPPxcAd1tgpx2neJkqk6M5wdZGUX4t8b8aRslhBV06Dt_AvZ0DJI3NdXSyZ8V5z9SS5-zu0HntBwlocsI7cauc3qeawgVJcTH7uqzgg-HUptEw-wK_X0LD7SAAXJ26eKQhKsaBkBiIsTr7qAKsDbyKlcdaoTfSavSR4v5g9NC3LRIPD6u4Wy1cucDf1kY0abg2yTQWALLu39n0UMzHq275sLFyV4jjknKsu8GAohLTOCmexIjIhupWDASav2N4BKt6xsaP2TCYHpqEl3rqh9-_t15ejlifacR9SYPbMD_lZBWkFHAwwvteAJOwOEwyucXQdddphIXxiXKO92Jj9TFkksMC4jUq5CDBv9F9-E69myk76xfglGv2TfDRrsRfO_qW65cfooqqN2Hfh-Djoi58yKrQ1-y-Ye6yV-FlA7gpBzuG3PB16faCgvHcKOUTME5vMi117_CsIQv2HfogP3NYLjcdP4x2Dkvxq_OLdtg3HENZKob3jocLYVZD3BkLSl8rTKL8c2_y9sHTZMjK_Esknaifg3TyAzhP_N7OoIMPb03VIfJKemS2jmNAwumIViDbME94zrgixgkAN158aaOSWJWHeA8hYrylb9HlSO75x0HktTEXSqYaEQDTbWmrc4I6339v0RRjbsmMfzDVoJEf2RwphGd-eAdFIhDQ2HRupIPg_sORuz4dxAyBn0XXIbqM0UolFxS1GZE16xlFoIuYU55AMpc0KqvQ6BtpepbkesQMk6WO_t0FfekB1Qx4_W_nt90OKnolCXCPoGgGyF9CMV8B4PqQ7RO5_hnYQMID1-1esqfFO8YPEzmudsm-MXwqVv43rHP5C5kE3VLowxZ18dRihDvuymiGKSxEBNyWSKKlOlhZYt1BL8zTZFnO9jxmRlawxZVRuFFKo6q292FEsWcEfatgYiLPQmP5ayla6YlLrW_b2MkkMblI7H_t8SxdOPEc1MKvIQ1JUd_8974_7Yjqu63ZxtC54Pv_jX1GY_fTX9Byg7rkVCvORZVDnSQn_f6NWz7tTkFwlU1skSUorqdMSIiiqkNE8CZGK-CGHwgClm2IVbGIcIm8YxTOy558tWFEFuSXb4ZZy2U6RtDxfwM3KArO_a3_1MOw_9CG2H2MtSub5e_WuojT3mVzoy1c3Rl55RnyYu7826-RGdaI-R8JB_tWWzNEdYX3QBR8Fvg7Zbm0ckyxVlFyBl3Y341tn-4ly7_0KPH1zXREwRcLrbNQPJWT5HOYhv7DKJ1d_CxAM1J6tfD8A70fBuaNW8bvV6G9__mWVUuzCTmG_rfjaKX9VjfptetbC69YfiqLCtHFna26Q8u9OAjO9UQPF8IkSPkdIxyBEzTvWhKrLh60w_FCfiIg_1sCRwYXzpyAALr45TkBQmicej-rUnAZIZISG1ifH6x0iQSpsju7hhoZzL2O9GCrjMsCvDG2UVBbXnNwqrCdaDd0mKj5jWRKr_DR_gi34wf1gIblaCGJDxHiiEZYmkSunjvdVlPV_D7sLyrN3dmr4iFL4SwEVQs2hYD_nxvXV9uQQGHmWtdizvNK4fCb9JXRtXX3Ube9lMzAiXEMGkCGW8aKCR4nSllaX7X9W0zRlcTtwP-pXC5vzZPGesKsnpcXXDjwt1Ffqzmg6GRtHJTM6-ZO67X43A8a2Ki983FzRmBkyGDSw6IYzeDDxc5zZUUzGBsuPhO67uOXzfJAYzNZT_qd0a0XQtSiP0UA7oeb_nr8YlaE3xyGPQJkWFWOJDbqR6zqjfb0vP573yNMwHIAnAYVoYUS7QW6x2Hl4fPZPDnXuWhKMSSmKPG0seupZdpMsZni3LPTWaJbTqHQLu7TkKr06sb33uEa1GTfGsnllAa5ByoVJR9PBtl9YW-vPmmmcjzut8JQqHJmIBLzhvaQu0_QEtTdh32_fwXfKKmxh7C7FQ_msbEl8XgP-x6FBzJGm4sg8CCXw-wtxIiZNOfqq_Asf3H2m-EceoWF5GOSBytiUa3sLGaSG7VmdcxI182rYM1blFi2aQC8NXd-VLTOoNV16ppelS3tzgVW9FpVJmCQ7a8RZg7tqAfg1JAffobaREGLJbhj5XiC0rhfjFhr3LLL0fhflACMknlENO3XAndubzuux3Dpth5SkFnytbdcHj7iRCreLBcatWnCsNdMNBvn6qVXnaavv7PEf_nRaPrRjb_NAwB-bWFIEWtbmBOpEjUoxbCe--9XXTriG9zcB20Hnpjp322GbEX-fDHHq0Wme7UK--AZlPRAuuOp0CLQJpx2QOlE33dJJIaRb-MUetAnILFXrM2yTjiZWI-0mYc7PhXJQCfNYEG2Y32QgfClpkm0Ou7Ogn0yTyx72tUHoCnKtoUu2E3axzAPc83IBCM7LfpE2fD_cX-gpVo9KeoqsZoo0ZQ0pVLNNVmH5d82GPNEtamQa3r2zikU2SnTNUgF4nnlojZ9RwL-IBIuhW2-g1UblVUAjpubzSZrfeMvpfTeqLnWQgwhigTO1M2OAYC2_wna60bj9L9yi90SPhqkC6-oLFBy89DwUERFUanPjPiSjsVpZB2V-i2W2; Path=/; SameSite=Lax; HttpOnly
+Date: Mon, 27 Mar 2023 10:02:24 GMT
+Server: gunicorn/19.9.0
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Credentials: true
+X-Kong-Upstream-Latency: 689
+X-Kong-Proxy-Latency: 184
+Via: kong/3.2.1.0-enterprise-edition
+
+{
+  "args": {},
+  "data": "",
+  "files": {},
+  "form": {},
+  "headers": {
+    "Accept": "*/*",
+    "Authorization": "Bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJCTFQ5UnllMWhYYzRyWmFubWQ3aW9jbkRWOW9rc3A2NDJNZjR4VXV1SUw0In0.eyJleHAiOjE2Nzk5MTE0MDMsImlhdCI6MTY3OTkxMTM0MywianRpIjoiM2Y0YzFhMWEtOTE2MS00ZGFkLWI4ODYtMTY3ZTAyZjM4ZmIzIiwiaXNzIjoiaHR0cDovLzE5Mi4xNjguMjAwLjE4NDo4MTgwL3JlYWxtcy9tYXN0ZXIiLCJhdWQiOiJhY2NvdW50Iiwic3ViIjoiNDI4ZTg2ZTUtMjRmZS00YTA2LWE0NDktZjYzZDdiZDEwZWMwIiwidHlwIjoiQmVhcmVyIiwiYXpwIjoia29uZyIsInNlc3Npb25fc3RhdGUiOiI5MzU2OWFjZi0zM2VlLTQ0ODctOGY5Yy03ZDkzMWUzMGI4ODMiLCJhY3IiOiIxIiwiYWxsb3dlZC1vcmlnaW5zIjpbImh0dHA6Ly9sb2NhbGhvc3Q6ODAwMCJdLCJyZWFsbV9hY2Nlc3MiOnsicm9sZXMiOlsiZGVmYXVsdC1yb2xlcy1tYXN0ZXIiLCJvZmZsaW5lX2FjY2VzcyIsInVtYV9hdXRob3JpemF0aW9uIl19LCJyZXNvdXJjZV9hY2Nlc3MiOnsiYWNjb3VudCI6eyJyb2xlcyI6WyJtYW5hZ2UtYWNjb3VudCI100  1939  100  1939    0     0   2204      0 --:--:-- --:--:-- --:--:--  2203SIsInNpZCI6IjkzNTY5YWNmLTMzZWUtNDQ4Ny04ZjljLTdkOTMxZTMwYjg4MyIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwicHJlZmVycmVkX3VzZXJuYW1lIjoiZW1wbG95ZWUyIn0.R3Thsfj-FX4xTra3YXhz_AuK1Mkh63mjDWeQ7sjZmbNEspPBo9ZUU2iUCSOe71-bd4GutTD7He2jzw53-qEfR7nvOXeG9pEZcvyl4zHZWBy5rOh9eXyqkVf-T3w869EMczwaBx4QLDMlK56RjGrTelPkpvJ6HxQFhPZrwAzH4fZRslQ1c6ZouAeSCurIyjsFbeKd-kwnpcItWr0VdiIaFiQWkDd1syQ--XtQuH1SQppzWwCR-uiGsk13dhavHllT-QbHVHiqnsN5p76We2uV4ANFmOBzqWq3eURKSWfN0vYu67g5_K7BAyTxZQitZagOPp57r5QfKlgLxrG1g9p0OA",
+    "Host": "httpbin.org",
+    "User-Agent": "curl/7.85.0",
+    "X-Amzn-Trace-Id": "Root=1-642169b0-3ca853887da47d5317e08a99",
+    "X-Consumer-Groups": "",
+    "X-Consumer-Id": "616b6fb2-c151-40fb-a7d9-e3ed02fbcfa0",
+    "X-Consumer-Username": "employee2",
+    "X-Forwarded-Host": "localhost",
+    "X-Forwarded-Path": "/mock",
+    "X-Forwarded-Prefix": "/mock"
+  },
+  "json": null,
+  "method": "GET",
+  "origin": "172.19.0.1, 49.249.17.98",
+  "url": "http://localhost/anything"
+}
+
+
+curl -i -X POST https://34.118.242.154:8444/routes/myroute/plugins \
+    --data "name=openid-connect"  \
+    --data "config.issuer=https://34.16.129.112:8443/realms/master/.well-known/openid-configuration" \
+    --data "config.client_id=kong" \
+    --data "config.client_secret=YOusF6avFXBa33bQkVJdXTJveiD9CTM3" \
+    --data "config.response_mode=form_post" \
+    --data "config.ssl_verify=false"
+    
