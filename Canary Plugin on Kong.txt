@@ -1,0 +1,96 @@
+1.Create Service Command
+ curl -i -X POST http://localhost:8001/services \
+  --data name=mock_service \
+  --data url='http://httpbin.org/get'
+
+
+
+3. Create Route Command
+ curl -i -X POST http://localhost:8001/services/mock_service/routes \
+  --data 'paths[]=/mock' \
+  --data name=mock_routes
+
+
+3.Create a key-auth plugin
+curl -i -X POST http://localhost:8001/routes/mock_routes/plugins \
+    --data "name=key-auth"  \
+    --data "config.key_names=apikey"
+	
+4.Create two consumer
+curl -i -X POST http://localhost:8001/consumers --data username=conA 
+
+curl -i -X POST http://localhost:8001/consumers --data username=conB 
+
+5.Create credentials
+curl -i -X POST http://localhost:8001/consumers/conA/key-auth
+
+curl -i -X POST http://localhost:8001/consumers/conB/key-auth
+
+6.Create Groups 
+curl -X POST http://localhost:8001/consumers/conA/acls -d group=canaryg
+
+curl -X POST http://localhost:8001/consumers/conB/acls -d group=noncanaryg
+
+7. Create Canary plugin 
+curl -X POST http://localhost:8001/routes/mock_routes/plugins -d name=canary -d config.hash=whitelist -d config.groups=canaryg -d config.upstream_host=httpbin.org -d config.upstream_port=80 -d config.upstream_uri='/json'
+
+8.Request the Proxy
+curl -i http://localhost:8000/mock?apikey=conBk
+
+ % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100    43  100    43    0     0     73      0 --:--:-- --:--:-- --:--:--    73HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 43
+Connection: keep-alive
+Date: Wed, 22 Mar 2023 05:10:20 GMT
+Server: gunicorn/19.9.0
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Credentials: true
+X-Kong-Upstream-Latency: 563
+X-Kong-Proxy-Latency: 15
+Via: kong/3.2.1.0-enterprise-edition
+
+{
+  "origin": "172.21.0.1, 49.249.17.98"
+}
+
+
+
+curl -i http://localhost:8000/mock?apikey=conAk
+ % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   429  100   429    0     0    480      0 --:--:-- --:--:-- --:--:--   480HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 429
+Connection: keep-alive
+Date: Wed, 22 Mar 2023 05:10:15 GMT
+Server: gunicorn/19.9.0
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Credentials: true
+X-Kong-Upstream-Latency: 566
+X-Kong-Proxy-Latency: 143
+Via: kong/3.2.1.0-enterprise-edition
+
+{
+  "slideshow": {
+    "author": "Yours Truly",
+    "date": "date of publication",
+    "slides": [
+      {
+        "title": "Wake up to WonderWidgets!",
+        "type": "all"
+      },
+      {
+        "items": [
+          "Why <em>WonderWidgets</em> are great",
+          "Who <em>buys</em> WonderWidgets"
+        ],
+        "title": "Overview",
+        "type": "all"
+      }
+    ],
+    "title": "Sample Slide Show"
+  }
+}
+
